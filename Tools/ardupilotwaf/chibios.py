@@ -253,7 +253,7 @@ def sign_firmware(image, private_keyfile):
         Logs.error("Please install monocypher with: python3 -m pip install pymonocypher==3.1.3.2")
         return None
 
-    if monocypher.__version__ != "3.1.3.2":
+    if monocypher.__version__ != "3.1.3.1":
         Logs.error("must use monocypher 3.1.3.2, please run: python3 -m pip install pymonocypher==3.1.3.2")
         return None
 
