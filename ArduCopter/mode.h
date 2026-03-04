@@ -101,6 +101,7 @@ public:
         AUTOROTATE =   26,  // Autonomous autorotation
         AUTO_RTL =     27,  // Auto RTL, this is not a true mode, AUTO will report as this mode if entered to perform a DO_LAND_START Landing sequence
         TURTLE =       28,  // Flip over after crash
+        CUSTOM =       101,
 
         // Mode number 30 reserved for "offboard" for external/lua control.
 
@@ -1238,6 +1239,165 @@ private:
     // guided mode is paused or not
     bool _paused;
 };
+
+class ModeCustom : public Mode {
+
+public:
+#if AP_EXTERNAL_CONTROL_ENABLED
+    friend class AP_ExternalControl_Copter;
+#endif
+
+    // inherit constructor
+    using Mode::Mode;
+    Number mode_number() const override { return Number::CUSTOM; }
+
+    bool init(bool ignore_checks) override;
+    void run() override;
+
+    bool requires_position() const override { return true; }
+    bool has_manual_throttle() const override { return false; }
+    bool allows_arming(AP_Arming::Method method) const override;
+    bool is_autopilot() const override { return true; }
+    bool has_user_takeoff(bool must_navigate) const override { return true; }
+    bool in_guided_mode() const override { return true; }
+    bool move_vehicle_on_ekf_reset() const override;
+
+    bool requires_terrain_failsafe() const override { return true; }
+    bool is_stick_override_engaged() const { return _stick_override_engaged; }
+
+#if AP_COPTER_ADVANCED_FAILSAFE_ENABLED
+    // Return the type of this mode for use by advanced failsafe
+    AP_AdvancedFailsafe_Copter::control_mode afs_mode() const override { return AP_AdvancedFailsafe_Copter::control_mode::AFS_AUTO; }
+#endif
+
+    // Return true if the throttle high arming check can be skipped when arming from GCS or Scripting
+    bool allows_GCS_or_SCR_arming_with_throttle_high() const override { return true; }
+    void set_angle(const Quaternion &attitude_quat, const Vector3f &ang_vel, float climb_rate_ms_or_thrust, bool use_thrust);
+
+    void hold_position();
+    bool set_pos_NED_m(const Vector3p& pos_ned_m, bool use_yaw = false, float yaw_rad = 0.0, bool use_yaw_rate = false, float yaw_rate_rads = 0.0, bool yaw_relative = false, bool is_terrain_alt = false);
+    bool set_destination(const Location& dest_loc, bool use_yaw = false, float yaw_rad = 0.0, bool use_yaw_rate = false, float yaw_rate_rads = 0.0, bool yaw_relative = false);
+    bool get_wp(Location &loc) const override;
+    void set_accel_NED_mss(const Vector3f& accel_ned_mss, bool use_yaw = false, float yaw_rad = 0.0, bool use_yaw_rate = false, float yaw_rate_rads = 0.0, bool yaw_relative = false, bool log_request = true);
+    void set_vel_NED_ms(const Vector3f& vel_ned_ms, bool use_yaw = false, float yaw_rad = 0.0, bool use_yaw_rate = false, float yaw_rate_rads = 0.0, bool yaw_relative = false, bool log_request = true);
+    void set_vel_accel_NED_m(const Vector3f& vel_ned_ms, const Vector3f& accel_ned_mss, bool use_yaw = false, float yaw_rad = 0.0, bool use_yaw_rate = false, float yaw_rate_rads = 0.0, bool yaw_relative = false, bool log_request = true);
+    bool set_pos_vel_NED_m(const Vector3p& pos_ned_m, const Vector3f& vel_ned_ms, bool use_yaw = false, float yaw_rad = 0.0, bool use_yaw_rate = false, float yaw_rate_rads = 0.0, bool yaw_relative = false);
+    bool set_pos_vel_accel_NED_m(const Vector3p& pos_ned_m, const Vector3f& vel_ned_ms, const Vector3f& accel_ned_mss, bool use_yaw = false, float yaw_rad = 0.0, bool use_yaw_rate = false, float yaw_rate_rads = 0.0, bool yaw_relative = false);
+
+    // get position, velocity and acceleration targets
+    const Vector3p& get_target_pos_NED_m() const;
+    const Vector3f& get_target_vel_NED_ms() const;
+    const Vector3f& get_target_accel_NED_mss() const;
+
+    // returns true if GUIDED_OPTIONS param suggests SET_ATTITUDE_TARGET's "thrust" field should be interpreted as thrust instead of climb rate
+    bool set_attitude_target_provides_thrust() const;
+    bool stabilizing_pos_NE() const;
+    bool stabilizing_vel_NE() const;
+    bool use_wpnav_for_position_control() const;
+
+    void limit_clear();
+    void limit_init_time_and_pos();
+    void limit_set(uint32_t timeout_ms, float alt_min_m, float alt_max_m, float horiz_max_m);
+    bool limit_check();
+
+    bool is_taking_off() const override;
+    
+    bool set_speed_NE_ms(float speed_ne_ms) override;
+    bool set_speed_up_ms(float speed_up_ms) override;
+    bool set_speed_down_ms(float speed_down_ms) override;
+
+    // initialises position controller to implement take-off
+    // takeoff_alt_m is interpreted as alt-above-home (in m) or alt-above-terrain if a rangefinder is available
+    bool do_user_takeoff_start_m(float takeoff_alt_m) override;
+
+    enum class SubMode {
+        TakeOff,
+        WP,
+        Pos,
+        PosVelAccel,
+        VelAccel,
+        Accel,
+        Angle,
+    };
+
+    SubMode submode() const { return guided_mode; }
+
+    void angle_control_start();
+    void angle_control_run();
+
+    // return guided mode timeout in milliseconds. Only used for velocity, acceleration, angle control, and angular rate control
+    uint32_t get_timeout_ms() const;
+
+    bool use_pilot_yaw() const override;
+
+    // pause continue in guided mode
+    bool pause() override;
+    bool resume() override;
+
+    // true if weathervaning is allowed in guided
+#if WEATHERVANE_ENABLED
+    bool allows_weathervaning(void) const override;
+#endif
+
+protected:
+
+    const char *name() const override { return "Custom"; }
+    const char *name4() const override { return "CUST"; }
+
+    float wp_distance_m() const override;
+    float wp_bearing_deg() const override;
+    float crosstrack_error_m() const override;
+
+private:
+
+    // enum for GUID_OPTIONS parameter
+    enum class Option : uint32_t {
+        AllowArmingFromTX   = (1U << 0),
+        // this bit is still available, pilot yaw was mapped to bit 2 for symmetry with auto
+        IgnorePilotYaw      = (1U << 2),
+        SetAttitudeTarget_ThrustAsThrust = (1U << 3),
+        DoNotStabilizePositionXY = (1U << 4),
+        DoNotStabilizeVelocityXY = (1U << 5),
+        WPNavUsedForPosControl = (1U << 6),
+        AllowWeatherVaning = (1U << 7)
+    };
+
+    // returns true if the Guided-mode-option is set (see GUID_OPTIONS)
+    bool option_is_enabled(Option option) const;
+   
+
+    // wp controller
+    void wp_control_start();
+    void wp_control_run();
+
+    void pva_control_start();
+    void pos_control_start();
+    void accel_control_start();
+    void velaccel_control_start();
+    void posvelaccel_control_start();
+    void takeoff_run();
+    void pos_control_run();
+    void accel_control_run();
+    void velaccel_control_run();
+    void pause_control_run();
+    void posvelaccel_control_run();
+    void set_yaw_state_rad(bool use_yaw, float yaw_rad, bool use_yaw_rate, float yaw_rate_rads, bool relative_angle);
+    bool stick_override_active() const;  // true if any stick is beyond deadband RIGHT NOW
+    void update_stick_override();        // one-way latch check, called every loop
+    void stick_override_run();           // Loiter-style run loop while override is active
+
+    // controls which controller is run (pos or vel):
+    SubMode guided_mode = SubMode::TakeOff;
+     // used to send one time notification to ground station:
+    bool send_notification;
+    static bool takeoff_complete;      // true once takeoff has completed (used to trigger retracting of landing gear)
+
+    // guided mode is paused or not
+    bool _paused;
+    bool _stick_override_engaged = false;
+};
+
+
 
 #if AP_SCRIPTING_ENABLED
 // Mode which behaves as guided with custom mode number and name
