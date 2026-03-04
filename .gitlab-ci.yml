@@ -60,8 +60,6 @@ build_and_sign:
 deploy_to_registry:
   stage: deploy
   image: alpine:3.19
-  tags:
-    - docker
 
   dependencies:
     - build_and_sign
