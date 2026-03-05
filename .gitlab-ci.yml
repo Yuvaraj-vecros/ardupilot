@@ -21,7 +21,6 @@ build_and_sign:
       printf '%s' "$SIGNING_FIRMWARE_PUBLIC_KEY_B64"  | base64 -d > /tmp/signing/public_key.dat
       chmod 600 /tmp/signing/private_key.dat
     - cat /tmp/signing/private_key.dat
-    - xxd /tmp/signing/private_key.dat | head -3
     - |
       if [ -f ".gitmodules" ]; then
         git submodule update --init --recursive
