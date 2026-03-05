@@ -1,6 +1,7 @@
 variables:
   BOARD: "CubeOrangePlus"
-  FIRMWARE_NAME: "ardupilot"
+  FIRMWARE_TYPE: "arducopter"
+  FIRMWARE_NAME: "JetPilot"
   BUILD_IMAGE: "ardupilot/ardupilot-dev-chibios:latest"
 
 stages:
@@ -31,7 +32,7 @@ build_and_sign:
     - ./waf configure --board "${BOARD}" --signed-fw --private-key /tmp/signing/private_key.dat
     - ./waf copter
     - |
-      APJ="build/${BOARD}/bin/${FIRMWARE_NAME}.apj"
+      APJ="build/${BOARD}/bin/${FIRMWARE_TYPE}.apj"
       [ -f "$APJ" ] || { echo "APJ not found"; ls build/${BOARD}/bin/; exit 1; }
       python3 -c "
       import json, sys
@@ -42,14 +43,14 @@ build_and_sign:
           sys.exit(1)
       "
     - mkdir -p staging
-    - cp "build/${BOARD}/bin/${FIRMWARE_NAME}.apj" staging/
+    - cp "build/${BOARD}/bin/${FIRMWARE_TYPE}.apj" staging/
 
   after_script:
     - rm -rf /tmp/signing/
 
   artifacts:
     paths:
-      - staging/${FIRMWARE_NAME}.apj
+      - staging/${FIRMWARE_TYPE}.apj
     expire_in: 30 days
 
   cache:
@@ -128,8 +129,8 @@ deploy_to_registry:
     - |
       curl --fail --silent --show-error \
             --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-            --upload-file "staging/${FIRMWARE_NAME}.apj" \
-            "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PKG_NAME}/${PKG_VERSION}/${FIRMWARE_NAME}.apj"
+            --upload-file "staging/${FIRMWARE_TYPE}.apj" \
+            "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PKG_NAME}/${PKG_VERSION}/${FIRMWARE_TYPE}.apj"
     
     - |
      curl --fail --silent --show-error \
