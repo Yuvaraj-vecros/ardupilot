@@ -36,11 +36,11 @@ build_and_sign:
       [ -f "$APJ" ] || { echo "APJ not found"; ls build/${BOARD}/bin/; exit 1; }
       python3 -c "
       import json, sys
-      with open('${APJ}') as f:
-          d = json.load(f)
-      if not d.get('signature'):
-          print('No signature in APJ')
-          sys.exit(1)
+      is_signed = d.get('signed_firmware')
+      print('signed_firmware:', is_signed)
+      if not is_signed:
+        print('signed_firmware flag not set in APJ')
+        sys.exit(1)
       "
     - mkdir -p staging
     - cp "build/${BOARD}/bin/${FIRMWARE_TYPE}.apj" staging/
