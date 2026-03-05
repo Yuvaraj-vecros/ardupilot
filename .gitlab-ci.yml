@@ -95,6 +95,10 @@ deploy_to_registry:
       fw_name     = '${FIRMWARE_NAME}'
       api_url     = '${CI_API_V4_URL}'
       apj_path    = 'staging/' + fw_type + '.apj'
+      project_url = '${CI_PROJECT_URL}'
+      project_id  = '${CI_PROJECT_ID}'
+      board       = '${BOARD}'
+      branch      = '${CI_COMMIT_REF_NAME}'
 
       apj_url = api_url + '/projects/' + project_id + '/packages/generic/' + pkg_name + '/' + pkg_version + '/' + fw_type + '.apj'
 
