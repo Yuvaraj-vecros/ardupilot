@@ -74,7 +74,7 @@ deploy_to_registry:
   script:
     - |
       PKG_NAME="arducopter-firmware"
-      PKG_VERSION=$(echo "${CI_COMMIT_MESSAGE}" | grep -oP 'v\d+\.\d+\.\d+' | head -1)
+      PKG_VERSION=$(echo "${CI_COMMIT_MESSAGE}" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
       if [ -z "${PKG_VERSION}" ]; then
         echo "No version found in commit message (expected format: v1.0.0)"
         exit 1
