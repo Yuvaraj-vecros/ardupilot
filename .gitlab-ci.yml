@@ -1,6 +1,6 @@
 variables:
   BOARD: "CubeOrangePlus"
-  FIRMWARE_NAME: "JetPilot"
+  FIRMWARE_NAME: "ardupilot"
   BUILD_IMAGE: "ardupilot/ardupilot-dev-chibios:latest"
 
 stages:
