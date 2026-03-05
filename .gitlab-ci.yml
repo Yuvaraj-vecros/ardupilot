@@ -36,6 +36,8 @@ build_and_sign:
       [ -f "$APJ" ] || { echo "APJ not found"; ls build/${BOARD}/bin/; exit 1; }
       python3 -c "
       import json, sys
+      with open('${APJ}') as f:
+          d = json.load(f)
       is_signed = d.get('signed_firmware')
       print('signed_firmware:', is_signed)
       if not is_signed:
@@ -99,13 +101,13 @@ deploy_to_registry:
       project_url = os.environ["CI_PROJECT_URL"]
       board       = os.environ["BOARD"]
       branch      = os.environ["CI_COMMIT_REF_NAME"]
-      apj_path    = f"staging/{fw_name}.apj"
+      apj_path    = f"staging/{FIRMWARE_TYPE}.apj"
       
       apj_url = (
         f"{project_url}/-/package_files/"
         f"?package_name=arducopter-firmware"
         f"&package_version={pkg_version}"
-        f"&file_name={fw_name}.apj"
+        f"&file_name={FIRMWARE_TYPE}.apj"
       )
 
       manifest = {
