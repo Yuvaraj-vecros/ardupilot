@@ -73,69 +73,53 @@ deploy_to_registry:
 
   script:
     - |
-      PKG_NAME="arducopter-firmware"
+      PKG_NAME="${FIRMWARE_NAME}-firmware"
       PKG_VERSION=$(echo "${CI_COMMIT_MESSAGE}" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
       if [ -z "${PKG_VERSION}" ]; then
         echo "No version found in commit message (expected format: v1.0.0)"
         exit 1
       fi
-      # Export for subsequent shell blocks
-      echo "PKG_VERSION=${PKG_VERSION}" >> build.env
-      echo "PKG_NAME=${PKG_NAME}"       >> build.env
-      
-    - source build.env
-
-    - |
-      python3 << PYEOF
+      python3 -c "
       import json, os, hashlib
 
       def sha256(path):
           h = hashlib.sha256()
-          with open(path, "rb") as f:
-              for chunk in iter(lambda: f.read(8192), b""):
+          with open(path, 'rb') as f:
+              for chunk in iter(lambda: f.read(8192), b''):
                   h.update(chunk)
           return h.hexdigest()
 
-      pkg_version = os.environ["PKG_VERSION"]
-      fw_name     = os.environ["FIRMWARE_NAME"]
-      project_url = os.environ["CI_PROJECT_URL"]
-      board       = os.environ["BOARD"]
-      branch      = os.environ["CI_COMMIT_REF_NAME"]
-      apj_path    = f"staging/{FIRMWARE_TYPE}.apj"
-      
-      apj_url = (
-        f"{project_url}/-/package_files/"
-        f"?package_name=arducopter-firmware"
-        f"&package_version={pkg_version}"
-        f"&file_name={FIRMWARE_TYPE}.apj"
-      )
+      pkg_version = '${PKG_VERSION}'
+      pkg_name    = '${PKG_NAME}'
+      fw_type     = '${FIRMWARE_TYPE}'
+      fw_name     = '${FIRMWARE_NAME}'
+      api_url     = '${CI_API_V4_URL}'
+      apj_path    = 'staging/' + fw_type + '.apj'
+
+      apj_url = api_url + '/projects/' + project_id + '/packages/generic/' + pkg_name + '/' + pkg_version + '/' + fw_type + '.apj'
 
       manifest = {
-          "firmware_version": pkg_version,
-          "vehicle_type":     "copter",
-          "board":            board,
-          "build_timestamp":  os.popen("date -u +%Y-%m-%dT%H:%M:%SZ").read().strip(),
-          "files": {
-              "apj": {
-                  "url":        apj_url,
-                  "sha256":     sha256(apj_path),
-                  "size_bytes": os.path.getsize(apj_path),
+          'firmware_name':    fw_name,
+          'firmware_version': pkg_version,
+          'vehicle_type':     'copter',
+          'build_timestamp':  __import__('subprocess').check_output(['date','-u','+%Y-%m-%dT%H:%M:%SZ']).decode().strip(),
+          'files': {
+              'apj': {
+                  'url':        apj_url,
+                  'sha256':     sha256(apj_path),
+                  'size_bytes': os.path.getsize(apj_path),
               }
           }
       }
 
-      with open("staging/version.json", "w") as f:
+      with open('staging/version.json', 'w') as f:
           json.dump(manifest, f, indent=2)
-      PYEOF
-
-    - |
+      "
       curl --fail --silent --show-error \
-            --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-            --upload-file "staging/${FIRMWARE_TYPE}.apj" \
-            "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PKG_NAME}/${PKG_VERSION}/${FIRMWARE_TYPE}.apj"
-    
-    - |
-     curl --fail --silent --show-error \
-            --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-            --upload-file "staging/version.json" \
-            "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PKG_NAME}/${PKG_VERSION}/version.json"
+        --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --upload-file "staging/${FIRMWARE_TYPE}.apj" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PKG_NAME}/${PKG_VERSION}/${FIRMWARE_TYPE}.apj"
+      curl --fail --silent --show-error \
+        --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --upload-file "staging/version.json" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PKG_NAME}/${PKG_VERSION}/version.json"
